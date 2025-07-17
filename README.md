@@ -5,7 +5,7 @@ This is a simple Node.js web app used to demonstrate a complete DevOps CI/CD pip
 - GitHub Actions
 - Docker
 - Terraform
-- AWS EKS (Kubernetes)
+- AWS EKS (Kubernetes) .
 
 ## How to Run Locally
 
