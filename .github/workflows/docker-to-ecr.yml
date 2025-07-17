@@ -26,7 +26,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t devops-app .
+          docker build -t devops-app -f app/Dockerfile app/
 
       - name: Tag Docker image
         run: |
