@@ -17,5 +17,6 @@ spec:
       containers:
         - name: devops-app
           image: 760475143998.dkr.ecr.us-east-1.amazonaws.com/devops-app:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
