@@ -1,36 +1,25 @@
-name: Build, Push to DockerHub & ECR, Deploy to EKS
+name: Build, Push to ECR, Deploy to EKS
 
 on:
   push:
     branches:
       - main
 
+env:
+  IMAGE_TAG: ${{ github.sha }}
+  ECR_IMAGE: ${{ secrets.ECR_REPO }}:${{ github.sha }}
+
 jobs:
   deploy:
-    name: Full CI/CD Pipeline
+    name: Build → Push to ECR → Deploy to EKS
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # Step 1: Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Login to Docker Hub
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # Step 3: Build and Push to Docker Hub
-      - name: Build and Push Docker Image to Docker Hub
-        uses: docker/build-push-action@v5
-        with:
-          context: ./app
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/devops-ci-cd-demo:latest
-
-      # Step 4: Configure AWS credentials
+      # Step 2: Configure AWS credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -38,33 +27,35 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 5: Login to Amazon ECR
+      # Step 3: Login to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Step 6: Pull Docker image from Docker Hub
-      - name: Pull Docker Image from Docker Hub
-        run: |
-          docker pull ${{ secrets.DOCKER_USERNAME }}/devops-ci-cd-demo:latest
+      # Step 4: Build and Push Docker Image to ECR
+      - name: Build and Push to Amazon ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: true
+          tags: ${{ env.ECR_IMAGE }}
 
-      # Step 7: Tag and Push to ECR
-      - name: Tag and Push Docker Image to ECR
+      # Step 5: Replace ECR image in deployment.yaml
+      - name: Replace ECR Image Tag in Deployment Manifest
         run: |
-          docker tag ${{ secrets.DOCKER_USERNAME }}/devops-ci-cd-demo:latest ${{ secrets.ECR_REPO }}:latest
-          docker push ${{ secrets.ECR_REPO }}:latest
+          sed -i "s|IMAGE_PLACEHOLDER|${{ env.ECR_IMAGE }}|g" k8s/deployment.yaml
 
-      # Step 8: Setup kubectl
+      # Step 6: Setup kubectl
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: latest
 
-      # Step 9: Update kubeconfig with EKS
+      # Step 7: Update kubeconfig with EKS
       - name: Update kubeconfig with EKS Cluster
         run: |
           aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name devops-ci-cd-cluster
 
-      # Step 10: Deploy to EKS
+      # Step 8: Deploy to EKS
       - name: Deploy to EKS
         run: |
           kubectl apply -f k8s/deployment.yaml
