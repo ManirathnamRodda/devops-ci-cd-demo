@@ -1,4 +1,4 @@
-name: Deploy to EKS  #
+name: Deploy to EKS
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Kubeconfig
+      - name: Set up kubeconfig from secret
         run: |
           echo "${{ secrets.KUBECONFIG_CONTENT }}" > kubeconfig
           export KUBECONFIG=$PWD/kubeconfig
@@ -25,16 +25,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Install kubectl
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Update kubeconfig with EKS
         run: |
-          curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/latest/2023-11-17/bin/linux/amd64/kubectl
-          chmod +x ./kubectl
-          sudo mv ./kubectl /usr/local/bin
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name devops-ci-cd-cluster
 
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region us-east-1 --name devops-ci-cd-cluster
-
-        
       - name: Deploy to EKS
         run: |
           kubectl apply -f k8s/deployment.yaml
